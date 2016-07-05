@@ -6,10 +6,10 @@ import (
     "os"
     "github.com/ThatGuyFromFinland/utils"
     "strings"
+    "strconv"
 )
 
 const (
-    CONN_HOST = "123.123.123.123"
     CONN_PORT = "50500"
     CONN_TYPE = "tcp"
 )
@@ -23,6 +23,8 @@ type Address struct {
     IP string
     port string
 }
+
+var clients Connections
 
 func main() {
     // Listen for incoming connections.
@@ -75,5 +77,8 @@ func handleRequest(conn net.Conn) {
 }
 
 func handleClientJoin(body string, conn net.Conn) {
-    conn.Write([]byte(body))
+    id := uint64(len(clients.Id))
+    clients.Id = append(clients.Id, id)
+    clients.Address = append(clients.Address, Address{IP: "Hola", port: "123"})
+    conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(id))))
 }
