@@ -4,24 +4,36 @@ import (
     "fmt"
     "net"
     "os"
+    "github.com/ThatGuyFromFinland/utils"
 )
 
 const (
-    CONN_HOST = "172.17.41.234"
+    CONN_HOST = "123.123.123.123"
     CONN_PORT = "50500"
     CONN_TYPE = "tcp"
 )
 
+type Connections struct {
+    Id []uint64
+    Address []Address
+}
+
+type Address struct {
+    IP [4]uint8
+    port uint16
+}
+
 func main() {
     // Listen for incoming connections.
-    l, err := net.Listen(CONN_TYPE, CONN_HOST+":"+CONN_PORT)
+    var ipAddress string = ip.GetIP()
+    l, err := net.Listen(CONN_TYPE, ipAddress+":"+CONN_PORT)
     if err != nil {
         fmt.Println("Error listening:", err.Error())
         os.Exit(1)
     }
     // Close the listener when the application closes.
     defer l.Close()
-    fmt.Println("Listening on " + CONN_HOST + ":" + CONN_PORT)
+    fmt.Printf("Listening on %s:" + CONN_PORT, ipAddress)
     for {
         // Listen for an incoming connection.
         conn, err := l.Accept()
