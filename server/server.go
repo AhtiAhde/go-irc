@@ -70,15 +70,19 @@ func handleRequest(conn net.Conn) {
                 handleClientJoin(body, conn)
         }
     }
-    fmt.Printf("Received action: %s", action)
-    fmt.Printf("Received body: %s", body)
     // Close the connection when you're done with it.
     conn.Close()
 }
 
 func handleClientJoin(body string, conn net.Conn) {
     id := uint64(len(clients.Id))
-    clients.Id = append(clients.Id, id)
-    clients.Address = append(clients.Address, Address{IP: "Hola", port: "123"})
-    conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(id))))
+    fmt.Printf("Body: %s", body)
+    addressParts := strings.SplitN(body, ":", 2)
+    if (len(addressParts) == 1) {
+        conn.Write([]byte ("Port missing!"))
+    } else {
+        clients.Id = append(clients.Id, id)
+        clients.Address = append(clients.Address, Address{IP: addressParts[0], port: addressParts[1]})
+        conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(id)) + ", you address is: " + clients.Address[id].IP + ":" + clients.Address[id].port))
+    }
 }
