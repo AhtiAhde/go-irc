@@ -51,6 +51,10 @@ func main() {
 
 // Handles incoming requests.
 func handleRequest(conn net.Conn) {
+    if (len(clients.Id) != len(clients.Address)) {
+        fmt.Println("Error: client registry has been corrupted, aborting")
+        os.Exit(1)
+    }
     // Make a buffer to hold incoming data.
     buf := make([]byte, 1024)
     // Read the incoming connection into the buffer.
@@ -67,14 +71,16 @@ func handleRequest(conn net.Conn) {
         body = request[1]
         switch {
             case action == "JOIN":
-                handleClientJoin(body, conn)
+                handleClientJoinRequest(body, conn)
+            case action == "PEOPLE":
+                handlePeopleRequest(body, conn)
         }
     }
     // Close the connection when you're done with it.
     conn.Close()
 }
 
-func handleClientJoin(body string, conn net.Conn) {
+func handleClientJoinRequest(body string, conn net.Conn) {
     id := uint64(len(clients.Id))
     fmt.Printf("Body: %s", body)
     addressParts := strings.SplitN(body, ":", 2)
@@ -85,4 +91,15 @@ func handleClientJoin(body string, conn net.Conn) {
         clients.Address = append(clients.Address, Address{IP: addressParts[0], port: addressParts[1]})
         conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(id)) + ", you address is: " + clients.Address[id].IP + ":" + clients.Address[id].port))
     }
+}
+
+func handlePeopleRequest(body string, conn net.Conn) {
+    request_id, _ := strconv.ParseUint(body, 10, 64)
+    var ret_ids []string
+    for _, id := range clients.Id {
+        if (id != request_id) {
+            ret_ids = append(ret_ids, strconv.FormatUint(id, 10))
+        }
+    }
+    conn.Write([]byte (strings.Join(ret_ids,",")))
 }
