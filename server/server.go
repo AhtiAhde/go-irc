@@ -14,6 +14,12 @@ const (
     CONN_TYPE = "tcp"
 )
 
+type Handler interface {
+    Read(b []byte) (n int, err error)
+    Write(b []byte) (n int, err error)
+    Close() error
+}
+
 type Connections struct {
     Id []uint64
     Address []Address
@@ -50,7 +56,7 @@ func main() {
 }
 
 // Handles incoming requests.
-func handleRequest(conn net.Conn) {
+func handleRequest(conn Handler) {
     if (len(clients.Id) != len(clients.Address)) {
         fmt.Println("Error: client registry has been corrupted, aborting")
         os.Exit(1)
@@ -62,13 +68,18 @@ func handleRequest(conn net.Conn) {
     if err != nil {
         fmt.Println("Error reading:", err.Error())
     }
-    // Send a response back to person contacting us.
-    // message = "Message received: " + message
-    request := strings.SplitN(string(buf[:n]), ":", 2)
-    action := request[0]
+    routeRequest(string(buf[:n]), conn)
+    // Close the connection when you're done with it.
+    conn.Close()
+}
+
+func routeRequest(request string, conn Handler) {
+    requestSplit := strings.SplitN(request, ":", 2)
+    action := requestSplit[0]
     body := ""
-    if (len(request) > 1) {
-        body = request[1]
+    if (len(requestSplit) > 1) {
+        body = requestSplit[1]
+        body = strings.TrimSuffix(body, "\n")
         switch {
             case action == "JOIN":
                 handleClientJoinRequest(body, conn)
@@ -76,11 +87,9 @@ func handleRequest(conn net.Conn) {
                 handlePeopleRequest(body, conn)
         }
     }
-    // Close the connection when you're done with it.
-    conn.Close()
 }
 
-func handleClientJoinRequest(body string, conn net.Conn) {
+func handleClientJoinRequest(body string, conn Handler) {
     id := uint64(len(clients.Id))
     fmt.Printf("Body: %s", body)
     addressParts := strings.SplitN(body, ":", 2)
@@ -93,10 +102,13 @@ func handleClientJoinRequest(body string, conn net.Conn) {
     }
 }
 
-func handlePeopleRequest(body string, conn net.Conn) {
-    request_id, _ := strconv.ParseUint(body, 10, 64)
+func handlePeopleRequest(body string, conn Handler) {
+    // var request_id uint64
+    request_id, err := strconv.ParseUint(body, 10, 64)
+    fmt.Printf("Request id: %q, err %s", request_id, err)
     var ret_ids []string
     for _, id := range clients.Id {
+        fmt.Printf("Request Id: %s, iter id: %s, body: %s", strconv.FormatUint(request_id, 10), strconv.FormatUint(id, 10), body)
         if (id != request_id) {
             ret_ids = append(ret_ids, strconv.FormatUint(id, 10))
         }
