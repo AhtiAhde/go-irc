@@ -35,7 +35,7 @@ var clients Connections
 func main() {
     // Listen for incoming connections.
     serverAddr := Address{IP: ip.GetIP(), port: CONN_PORT}
-    l, err := net.Listen(CONN_TYPE, serverAddr.IP+":"+serverAddr.port)
+    l, err := net.Listen(CONN_TYPE, serverAddr.IP + ":" + serverAddr.port)
     if err != nil {
         fmt.Println("Error listening:", err.Error())
         os.Exit(1)
