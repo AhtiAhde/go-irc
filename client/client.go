@@ -12,6 +12,7 @@ import (
 func main() {
     clientIP := ip.GetIP()
     serverIP := os.Args[1]
+    var otherUsers string
     reader := bufio.NewReader(os.Stdin)
     
     fmt.Printf("Your IP address is " + clientIP + ", which port would you prefer using?\n")
@@ -36,11 +37,12 @@ func main() {
     for {
         input, _ = reader.ReadString('\n')
         if input[:6] == "/WHOIS" {
-            people := sendRequest("PEOPLE:" + clientId, serverIP)
-            fmt.Println("Who is there? There are users: " + people)
+            otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
+            fmt.Println("Who is there? There are users: " + otherUsers)
         } else if input[:5] == "/QUIT" {
             os.Exit(1)
         } else {
+            sendRequest("MESSAGE:" + otherUsers + ":" + input, serverIP)
             fmt.Println("You: " + input)
         }
         

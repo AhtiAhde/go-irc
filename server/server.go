@@ -23,11 +23,17 @@ type Handler interface {
 type Connections struct {
     Id []uint64
     Address []Address
+    MessageQueue [1024]Message
 }
 
 type Address struct {
     IP string
     port string
+}
+
+type Message struct {
+    Recipient uint64
+    Payload string
 }
 
 var clients Connections
@@ -80,11 +86,14 @@ func routeRequest(request string, conn Handler) {
     if (len(requestSplit) > 1) {
         body = requestSplit[1]
         body = strings.TrimSuffix(body, "\n")
+        fmt.Printf("ACTION IS: %s", action)
         switch {
             case action == "JOIN":
                 handleClientJoinRequest(body, conn)
             case action == "PEOPLE":
                 handlePeopleRequest(body, conn)
+            case action == "MESSAGE":
+                handleMessageRequest(body, conn)
         }
     }
 }
@@ -114,4 +123,32 @@ func handlePeopleRequest(body string, conn Handler) {
         }
     }
     conn.Write([]byte (strings.Join(ret_ids,",")))
+}
+
+func handleMessageRequest(body string, conn Handler) {
+    bodySplit := strings.SplitN(body, ":", 2)
+    recipients := bodySplit[0]
+    message := bodySplit[1]
+    success := true
+    for _, recipient := range strings.Split(recipients, ",") {
+        recipientId, _ := strconv.ParseUint(recipient, 10, 64)
+        if insertNewMessage(recipientId, message) == false {
+            fmt.Println("Error: MessageQueue full")
+            success = false
+        }
+    }
+    if success == true {
+        conn.Write([]byte ("Sent: \"" + message + "\" to users " + recipients))
+    }
+}
+
+func insertNewMessage(recipient uint64, payload string) bool {
+    for index, slot := range clients.MessageQueue {
+        empty := Message{}
+        if slot == empty {
+            clients.MessageQueue[index] = Message{recipient, payload}
+            return true
+        }
+    }
+    return false
 }
