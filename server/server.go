@@ -7,6 +7,7 @@ import (
     "github.com/ThatGuyFromFinland/utils"
     "strings"
     "strconv"
+    "time"
 )
 
 const (
@@ -23,7 +24,7 @@ type Handler interface {
 type Connections struct {
     Id []uint64
     Address []Address
-    MessageQueue [1024]Message
+    MessageQueue [1000]Message
 }
 
 type Address struct {
@@ -49,6 +50,9 @@ func main() {
     // Close the listener when the application closes.
     defer l.Close()
     fmt.Printf("Listening on %s:%s", serverAddr.IP, serverAddr.port)
+
+    
+    go handleMessageBuffer(contactClient)
     for {
         // Listen for an incoming connection.
         conn, err := l.Accept()
@@ -59,6 +63,36 @@ func main() {
         // Handle connections in a new goroutine.
         go handleRequest(conn)
     }
+}
+
+type dialer func (Address) Handler
+
+func contactClient(address Address) Handler {
+    conn, _ := net.Dial("tcp", address.IP + ":" + address.port)
+    return conn
+}
+
+func handleMessageBuffer(contact dialer) {
+    for {
+        time.Sleep(1 * time.Millisecond)
+        for _, message := range clients.MessageQueue {
+            emptyMessage := Message{}
+            if message != emptyMessage {
+                conn :=establishConnection(message.Recipient, contact)
+                conn.Write([]byte (message.Payload))
+            }
+        }
+    }
+}
+
+func establishConnection(id uint64, contact dialer) Handler {
+    var ret Handler
+    for i, _ := range clients.Id {
+        if clients.Id[i] == id {
+            ret = contact(clients.Address[i])
+        }
+    }
+    return ret
 }
 
 // Handles incoming requests.

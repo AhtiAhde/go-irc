@@ -5,8 +5,9 @@ import (
     "errors"
 )
 
+var messageBuffer []string
+
 type MockServer struct {
-    MessageBuffer []string
     t *testing.T
 }
 
@@ -15,7 +16,7 @@ func (conn *MockServer) Read(b []byte) (n int, err error) {
 }
 
 func (conn *MockServer) Write(b []byte) (n int, err error) {
-    conn.MessageBuffer = append(conn.MessageBuffer, string(b))
+    messageBuffer = append(messageBuffer, string(b))
     return 1, errors.New("Everything Okay")
 }
 
@@ -23,8 +24,12 @@ func (conn *MockServer) Close() error {
     return errors.New("Everything Okay")
 }
 
-func (conn *MockServer) GetLastMessage() string {
-    return conn.MessageBuffer[len(conn.MessageBuffer) - 1]
+func getLastMessage() string {
+    return messageBuffer[len(messageBuffer) - 1]
+}
+
+func contactMockClient(Address address) Handler {
+	return new(MockServer)
 }
 
 func TestHandleClientJoinRequest(t *testing.T) {
@@ -44,12 +49,12 @@ func TestHandleClientJoinRequest(t *testing.T) {
 	
 	for _, c := range cases {
 	    routeRequest(c.in, mockConn)
-	    if mockConn.GetLastMessage() != c.want {
-	        t.Errorf("Here with %q, expected %q", mockConn.GetLastMessage(), c.want)
+	    if getLastMessage() != c.want {
+	        t.Errorf("Here with %q, expected %q", getLastMessage(), c.want)
 	    }
 	}
 	
 	if (clients.MessageQueue[4] != Message{}) {
-		t.Errorf("Unexpected amount of messages")
+		t.Errorf("Unexpected amount or sequence of messages")
 	}
 }
