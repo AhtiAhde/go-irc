@@ -75,11 +75,12 @@ func contactClient(address Address) Handler {
 func handleMessageBuffer(contact dialer) {
     for {
         time.Sleep(1 * time.Millisecond)
-        for _, message := range clients.MessageQueue {
+        for index, message := range clients.MessageQueue {
             emptyMessage := Message{}
             if message != emptyMessage {
                 conn :=establishConnection(message.Recipient, contact)
                 conn.Write([]byte (message.Payload))
+                clients.MessageQueue[index] = emptyMessage
             }
         }
     }
