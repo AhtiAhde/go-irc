@@ -62,7 +62,7 @@ Here is a list of versions and TODOs:
 - Added initial working server, with tests
 - Added minor utils package, with tests
 
-#### v-0.1.1 (TODO)
+#### v-0.1.1
 
 - Fix some of the data types to match the specifications
 

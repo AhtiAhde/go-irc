@@ -162,10 +162,18 @@ func handlePeopleRequest(body string, conn Handler) {
 
 func handleMessageRequest(body string, conn Handler) {
     bodySplit := strings.SplitN(body, ":", 2)
-    recipients := bodySplit[0]
+    recipients := strings.Split(bodySplit[0], ",")
     message := bodySplit[1]
+    if len(message) > 1048576 {
+        conn.Write([]byte ("Error: Message too long!"))
+        return
+    }
+    if len(recipients) > 255 {
+        conn.Write([]byte ("Error: Too many recipients!"))
+        return
+    }
     success := true
-    for _, recipient := range strings.Split(recipients, ",") {
+    for _, recipient := range recipients {
         recipientId, _ := strconv.ParseUint(recipient, 10, 64)
         if insertNewMessage(recipientId, message) == false {
             fmt.Println("Error: MessageQueue full")
@@ -173,7 +181,7 @@ func handleMessageRequest(body string, conn Handler) {
         }
     }
     if success == true {
-        conn.Write([]byte ("Sent: \"" + message + "\" to users " + recipients))
+        conn.Write([]byte ("Sent: \"" + message + "\" to users " + strings.Join(recipients, ",")))
     }
 }
 
