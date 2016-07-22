@@ -65,11 +65,13 @@ Here is a list of versions and TODOs:
 #### v-0.1.1
 
 - Fix some of the data types to match the specifications
+- Fix the bug, which causes panic upon sending less than six character messages
 
 #### v-0.2.0 (TODO)
 
 - Refactor more utilities
 - Refactor the brainfarts away
+- Learn more about channels and consider refactorings
 - Get more familiar with Go naming conventions and best practices, implement
 - Write more tests: improve server tests and write tests for the client
 
@@ -78,3 +80,39 @@ Here is a list of versions and TODOs:
 - Consider resource utilization and Event / Subscriber model (how to implement tests)
 - Consider proper data types for everything
 - Consider usability tweaks
+- Consider fault tolerance for the server (prevent runtime errors, if any)
+
+## Refactoring Plan
+
+[This video](https://www.youtube.com/watch?v=f6kdp27TYZs) seems to provide a nice
+approach to effective channel patterns, which would work for this problem area.
+
+First I had based the architecture upon the false idea, that Go is a functional
+language, which is far from truth. Yeah... should had considered about it more
+seriously when I read about structs.
+
+Anyway, the Connections struct and it's sub-constructs should be reformated in
+more object oriented ways and some functions should be refactored as methods.
+
+Then I should move those to a package perhaps?
+
+Testability should remain the same; perhaps I don't have to test the server.go,
+but only the Connections "object", which perhaps should be renamed as "server".
+
+Struct Server:
+-var userIds
+-var addressBook (user addresses)
+-var messageQueue (struct, with own methods)
+-var clientDialer
++method handleRequest
++method handleMessageQueue (rename handleMessageBuffer, later implement with channels)
++method setClientDialer
++method routeRequest (public for testing purposes, I guess)
+-method handleClientJoinRequest
+-method handlePeopleRequest
+-method handleMessageRequest
+-method messageQueue.insertNewMessage
+
+The above "class" seems a bit bloated. Perhaps addressBook should deal with join
+and people requests and messageQueue should deal with message requests. Even
+though the channels will be the ultimate solution, do not care about them now.

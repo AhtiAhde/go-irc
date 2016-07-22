@@ -19,10 +19,14 @@ func main() {
     fmt.Println("Press enter to use default [50501]:")
     port := "50501"
     var input string
+    
+    // Read the port
     input, _ = reader.ReadString('\n')
     if (input != "\n") {
         port = strings.Split(input, "\n")[0]
     }
+    
+    // Join the server
     joinRequest := "JOIN:" + clientIP + ":" + port
     fmt.Printf("Attempting: %s\n", joinRequest)
     status := sendRequest(joinRequest, serverIP)
@@ -31,21 +35,21 @@ func main() {
         clientId = strings.Split(status[21:], ",")[0]
     }
     fmt.Println("Connected to server successfully, your id is: " + clientId)
+    otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
     
     go startListeningForMessages(clientIP, port)
     
     for {
         input, _ = reader.ReadString('\n')
-        if input[:6] == "/WHOIS" {
+        if len(input) > 5 && input[:6] == "/WHOIS" {
             otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
             fmt.Println("Who is there? There are users: " + otherUsers)
-        } else if input[:5] == "/QUIT" {
+        } else if len(input) > 4 && input[:5] == "/QUIT" {
             os.Exit(1)
         } else {
             sendRequest("MESSAGE:" + otherUsers + ":" + input, serverIP)
             fmt.Println("You: " + input)
         }
-        
     }
 }
 

@@ -50,21 +50,24 @@ func main() {
     // Close the listener when the application closes.
     defer l.Close()
     fmt.Printf("Listening on %s:%s", serverAddr.IP, serverAddr.port)
-
     
+    // Start goroutine for message buffer;
+    // @todo: Refactor to a channel
     go handleMessageBuffer(contactClient)
+    
+    // Listen for incoming messages and route them for specific handlers
     for {
-        // Listen for an incoming connection.
         conn, err := l.Accept()
         if err != nil {
             fmt.Println("Error accepting: ", err.Error())
             os.Exit(1)
         }
-        // Handle connections in a new goroutine.
+        
         go handleRequest(conn)
     }
 }
 
+// These are for testability (duck typing?)
 type dialer func (Address) Handler
 
 func contactClient(address Address) Handler {
@@ -72,20 +75,28 @@ func contactClient(address Address) Handler {
     return conn
 }
 
+// Very suboptimal solution, but this will do for now
 func handleMessageBuffer(contact dialer) {
     for {
+        // This should perhaps save some processing resources? Not sure though
         time.Sleep(1 * time.Millisecond)
-        for index, message := range clients.MessageQueue {
-            emptyMessage := Message{}
-            if message != emptyMessage {
-                conn :=establishConnection(message.Recipient, contact)
-                conn.Write([]byte (message.Payload))
-                clients.MessageQueue[index] = emptyMessage
-            }
+        handleMessage(contact)
+    }
+}
+
+// Passing contact dialer feels stupid; there is a better way?
+func handleMessage(contact dialer) {
+    for index, message := range clients.MessageQueue {
+        emptyMessage := Message{}
+        if message != emptyMessage {
+            conn :=establishConnection(message.Recipient, contact)
+            conn.Write([]byte (message.Payload))
+            clients.MessageQueue[index] = emptyMessage
         }
     }
 }
 
+// A bit lame trick for testability; hopefully refactoring for channels will fix
 func establishConnection(id uint64, contact dialer) Handler {
     var ret Handler
     for i, _ := range clients.Id {
@@ -96,24 +107,27 @@ func establishConnection(id uint64, contact dialer) Handler {
     return ret
 }
 
-// Handles incoming requests.
+// Handles incoming requests, duh
 func handleRequest(conn Handler) {
+    // So basicly I am using the length of connection array as user id; lazy
     if (len(clients.Id) != len(clients.Address)) {
         fmt.Println("Error: client registry has been corrupted, aborting")
         os.Exit(1)
     }
-    // Make a buffer to hold incoming data.
+    
+    // Make a buffer to hold incoming data and read it
     buf := make([]byte, 1024)
-    // Read the incoming connection into the buffer.
     n, err := conn.Read(buf)
     if err != nil {
         fmt.Println("Error reading:", err.Error())
     }
+    
+    // Do something specific for the data and close the connection
     routeRequest(string(buf[:n]), conn)
-    // Close the connection when you're done with it.
     conn.Close()
 }
 
+// Kind of action controller, seems quite okay, nice to test also
 func routeRequest(request string, conn Handler) {
     requestSplit := strings.SplitN(request, ":", 2)
     action := requestSplit[0]
@@ -134,12 +148,16 @@ func routeRequest(request string, conn Handler) {
 }
 
 func handleClientJoinRequest(body string, conn Handler) {
+    // Lazy, I know, but does the trick
     id := uint64(len(clients.Id))
+    // Debugging code, which I am too tired of removing/adding all the time.
     fmt.Printf("Body: %s", body)
+    
     addressParts := strings.SplitN(body, ":", 2)
     if (len(addressParts) == 1) {
         conn.Write([]byte ("Port missing!"))
     } else {
+        // This works, but it could be better (more safe)
         clients.Id = append(clients.Id, id)
         clients.Address = append(clients.Address, Address{IP: addressParts[0], port: addressParts[1]})
         conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(id)) + ", you address is: " + clients.Address[id].IP + ":" + clients.Address[id].port))
@@ -147,42 +165,48 @@ func handleClientJoinRequest(body string, conn Handler) {
 }
 
 func handlePeopleRequest(body string, conn Handler) {
-    // var request_id uint64
-    request_id, err := strconv.ParseUint(body, 10, 64)
-    fmt.Printf("Request id: %q, err %s", request_id, err)
-    var ret_ids []string
+    requestId, err := strconv.ParseUint(body, 10, 64)
+    fmt.Printf("Request id: %q, err %s", requestId, err)
+    
+    // Seems a bit clumsy, but will do for now
+    var resultIds []string
     for _, id := range clients.Id {
-        fmt.Printf("Request Id: %s, iter id: %s, body: %s", strconv.FormatUint(request_id, 10), strconv.FormatUint(id, 10), body)
-        if (id != request_id) {
-            ret_ids = append(ret_ids, strconv.FormatUint(id, 10))
+        fmt.Printf("Request Id: %s, iter id: %s, body: %s", strconv.FormatUint(requestId, 10), strconv.FormatUint(id, 10), body)
+        if (id != requestId) {
+            resultIds = append(resultIds, strconv.FormatUint(id, 10))
         }
     }
-    conn.Write([]byte (strings.Join(ret_ids,",")))
+    conn.Write([]byte (strings.Join(resultIds,",")))
 }
+
 
 func handleMessageRequest(body string, conn Handler) {
     bodySplit := strings.SplitN(body, ":", 2)
+    fmt.Printf("Recipients: %s", bodySplit[0])
     recipients := strings.Split(bodySplit[0], ",")
     message := bodySplit[1]
+    
+    // 1024 kilobyte limit
     if len(message) > 1048576 {
         conn.Write([]byte ("Error: Message too long!"))
         return
     }
+    // Max 255 recipients
     if len(recipients) > 255 {
         conn.Write([]byte ("Error: Too many recipients!"))
         return
     }
-    success := true
+    
     for _, recipient := range recipients {
         recipientId, _ := strconv.ParseUint(recipient, 10, 64)
         if insertNewMessage(recipientId, message) == false {
             fmt.Println("Error: MessageQueue full")
-            success = false
+            // Might add debug message, which tells recipients, that didn't get
+            // delivered before exiting
+            return
         }
     }
-    if success == true {
-        conn.Write([]byte ("Sent: \"" + message + "\" to users " + strings.Join(recipients, ",")))
-    }
+    conn.Write([]byte ("Sent: \"" + message + "\" to users " + strings.Join(recipients, ",")))
 }
 
 func insertNewMessage(recipient uint64, payload string) bool {
