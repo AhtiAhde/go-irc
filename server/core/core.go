@@ -13,14 +13,25 @@ type Handler interface {
 }
 
 type Connections struct {
-    Id []uint64
-    Address []Address
+    AddressBook []AddressEntry
     MessageQueue MessageQueue
 }
 
-type Address struct {
+type AddressEntry struct {
+    Id uint64
     IP string
     Port string
+}
+
+func (this *Connections) InsertAddress(addressString string) bool {
+    addressParts := strings.Split(addressString, ":")
+    if (len(addressParts) != 2) {
+        return false
+    }
+    newEntry := AddressEntry{Id: uint64(len(this.AddressBook)), IP: addressParts[0], Port: addressParts[1]}
+    this.AddressBook = append(this.AddressBook, newEntry)
+    fmt.Println(len(this.AddressBook))
+    return true
 }
 
 ////// Router //////
@@ -48,19 +59,12 @@ func (this Router) RouteRequest(request string, conn Handler, clients *Connectio
 }
 
 func (this Router) handleClientJoinRequest(body string, conn Handler, clients *Connections) {
-    // Lazy, I know, but does the trick
-    id := uint64(len(clients.Id))
-    // Debugging code, which I am too tired of removing/adding all the time.
-    fmt.Printf("Body: %s", body)
-    
-    addressParts := strings.SplitN(body, ":", 2)
-    if (len(addressParts) == 1) {
-        conn.Write([]byte ("Port missing!"))
+    noErrors := clients.InsertAddress(body)
+    if noErrors == false {
+        conn.Write([]byte ("Invalid parameters, unable to add address!"))
     } else {
-        // This works, but it could be better (more safe)
-        clients.Id = append(clients.Id, id)
-        clients.Address = append(clients.Address, Address{IP: addressParts[0], Port: addressParts[1]})
-        conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(id)) + ", you address is: " + clients.Address[id].IP + ":" + clients.Address[id].Port))
+        newEntry := clients.AddressBook[len(clients.AddressBook) - 1]
+        conn.Write([]byte ("Welcome! Your id is: " + strconv.Itoa(int(newEntry.Id)) + ", you address is: " + newEntry.IP + ":" + newEntry.Port))
     }
 }
 
@@ -70,10 +74,10 @@ func (this Router) handlePeopleRequest(body string, conn Handler, clients *Conne
     
     // Seems a bit clumsy, but will do for now
     var resultIds []string
-    for _, id := range clients.Id {
-        fmt.Printf("Request Id: %s, iter id: %s, body: %s", strconv.FormatUint(requestId, 10), strconv.FormatUint(id, 10), body)
-        if (id != requestId) {
-            resultIds = append(resultIds, strconv.FormatUint(id, 10))
+    for _, address := range clients.AddressBook {
+        fmt.Printf("Request Id: %s, iter id: %s, body: %s", strconv.FormatUint(requestId, 10), strconv.FormatUint(address.Id, 10), body)
+        if (address.Id != requestId) {
+            resultIds = append(resultIds, strconv.FormatUint(address.Id, 10))
         }
     }
     conn.Write([]byte (strings.Join(resultIds,",")))
@@ -112,7 +116,7 @@ func (this Router) handleMessageRequest(body string, conn Handler, clients *Conn
 ////// Message Queue //////
 
 // These are for testability (duck typing?)
-type Dialer func (Address) Handler
+type Dialer func (AddressEntry) Handler
 
 type Message struct {
     Recipient uint64
@@ -123,7 +127,7 @@ type MessageQueue struct {
     MessageQueue [1024]Message //This could be refactored to plain MessageQueue
 }
 
-func (this MessageQueue) InsertNewMessage(recipient uint64, payload string) bool {
+func (this *MessageQueue) InsertNewMessage(recipient uint64, payload string) bool {
     for index, slot := range this.MessageQueue {
         empty := Message{}
         if slot == empty {
@@ -135,7 +139,7 @@ func (this MessageQueue) InsertNewMessage(recipient uint64, payload string) bool
 }
 
 // Passing contact dialer feels stupid; there is a better way?
-func (this MessageQueue) HandleMessage(contact Dialer, clients Connections) {
+func (this *MessageQueue) HandleMessage(contact Dialer, clients *Connections) {
     for index, message := range this.MessageQueue {
         emptyMessage := Message{}
         if message != emptyMessage {
@@ -147,11 +151,11 @@ func (this MessageQueue) HandleMessage(contact Dialer, clients Connections) {
 }
 
 // A bit lame trick for testability; hopefully refactoring for channels will fix
-func establishConnection(id uint64, contact Dialer, clients Connections) Handler {
+func establishConnection(id uint64, contact Dialer, clients *Connections) Handler {
     var ret Handler
-    for i, _ := range clients.Id {
-        if clients.Id[i] == id {
-            ret = contact(clients.Address[i])
+    for _, address := range clients.AddressBook {
+        if address.Id == id {
+            ret = contact(address)
         }
     }
     return ret

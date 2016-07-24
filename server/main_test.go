@@ -30,7 +30,7 @@ func getLastMessage() string {
     return messageBuffer[len(messageBuffer) - 1]
 }
 
-func contactMockClient(address core.Address) core.Handler {
+func contactMockClient(address core.AddressEntry) core.Handler {
 	return new(MockServer)
 }
 
