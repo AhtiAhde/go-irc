@@ -14,7 +14,6 @@ const (
     CONN_TYPE = "tcp"
 )
 
-var clients core.Connections
 var router core.Router
 
 func main() {
@@ -31,7 +30,8 @@ func main() {
     
     // Start goroutine for message buffer;
     // @todo: Refactor to a channel
-    go handleMessageBuffer(contactClient)
+    router.Init()
+    go handleMessages(contactClient, &router)
     
     // Listen for incoming messages and route them for specific handlers
     for {
@@ -50,25 +50,31 @@ func contactClient(address core.AddressEntry) core.Handler {
     return conn
 }
 
-// Very suboptimal solution, but this will do for now
-func handleMessageBuffer(contact core.Dialer) {
-    for {
-        // This should perhaps save some processing resources? Not sure though
-        time.Sleep(1 * time.Millisecond)
-        clients.MessageQueue.HandleMessage(contact, &clients)
-    }
-}
-
 // Handles incoming requests, duh
 func handleRequest(conn core.Handler) {
     // Make a buffer to hold incoming data and read it
-    buf := make([]byte, 1024)
+    buf := make([]byte, 1024) //Wondering if 1048577 would cause bad performance?
     n, err := conn.Read(buf)
     if err != nil {
         fmt.Println("Error reading:", err.Error())
     }
     
     // Do something specific for the data and close the connection
-    router.RouteRequest(string(buf[:n]), conn, &clients)
+    router.RouteRequest(string(buf[:n]), conn)
     conn.Close()
+}
+
+// Passing contact dialer feels stupid; there is a better way?
+func handleMessages(contact core.Dialer, router *core.Router) {
+    for {
+        select {
+            case message := <-router.MessageQueue:
+                fmt.Println("Mesasge received, delivering...")
+                conn := router.EstablishConnection(message.Recipient, contact)
+                conn.Write([]byte (message.Payload))
+            default:
+                time.Sleep(1 * time.Millisecond)
+        }
+    }
+    
 }

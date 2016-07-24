@@ -57,13 +57,9 @@ func TestHandleClientJoinRequest(t *testing.T) {
 	}
 	
 	for _, c := range cases {
-	    router.RouteRequest(c.in, mockConn, &clients)
+	    router.RouteRequest(c.in, mockConn)
 	    if getLastMessage() != c.want {
 	        t.Errorf("Here with %q, expected %q", getLastMessage(), c.want)
 	    }
-	}
-	
-	if (clients.MessageQueue.MessageQueue[4] != core.Message{}) {
-		t.Errorf("Unexpected amount or sequence of messages")
 	}
 }
