@@ -41,14 +41,27 @@ func main() {
     
     for {
         input, _ = reader.ReadString('\n')
-        if len(input) > 5 && input[:6] == "/WHOIS" {
-            otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
-            fmt.Println("Who is there? There are users: " + otherUsers)
-        } else if len(input) > 4 && input[:5] == "/QUIT" {
-            os.Exit(1)
-        } else {
-            sendRequest("MESSAGE:" + otherUsers + ":" + input, serverIP)
-            fmt.Println("You: " + input)
+        switch {
+            case len(input) > 5 && input[:6] == "/WHOIS": 
+                otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
+                fmt.Println("Users online: " + otherUsers)
+                break;
+            case len(input) > 6 && input[:7] == "/WHOAMI": 
+                response := sendRequest("WHOAMI:" + clientIP + ":" + port, serverIP)
+                fmt.Println(response)
+                break;
+            case len(input) > 7 && input[:8] == "/PRIVATE":
+                // input[9:] 9th char contains the first space
+                payload := strings.SplitN(input[9:], " ", 2)
+                sendRequest("MESSAGE:" + payload[0] + ":" + payload[1], serverIP)
+                fmt.Printf("To %s: %s\n", payload[0], payload[1])
+                break;
+            case len(input) > 4 && input[:5] == "/QUIT":
+                os.Exit(1)
+                //break; Maybe not needed?
+            default:
+                sendRequest("MESSAGE:" + otherUsers + ":" + input, serverIP)
+                fmt.Println("All: " + input)
         }
     }
 }
@@ -78,7 +91,7 @@ func startListeningForMessages(clientIP string, port string) {
         }
         fmt.Println(string(buf[:n]))
         client.Close()
-    }    
+    }
 }
 
 func sendRequest(request string, serverIP string) string {

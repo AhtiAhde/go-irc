@@ -4,18 +4,35 @@ import (
     "fmt"
     "strings"
     "strconv"
+    "net"
 )
 
+// For testability
 type Handler interface {
     Read(b []byte) (n int, err error)
     Write(b []byte) (n int, err error)
     Close() error
+    LocalAddr() net.Addr
 }
+
+// For testability
+type Dialer func (AddressEntry) Handler
+
 
 type AddressEntry struct {
     Id uint64
     IP string
     Port string
+}
+
+type Message struct {
+    Recipient uint64
+    Payload string
+}
+
+type Router struct {
+    MessageQueue chan Message
+    addressBook []AddressEntry
 }
 
 func (this *Router) InsertAddress(addressString string) bool {
@@ -29,33 +46,29 @@ func (this *Router) InsertAddress(addressString string) bool {
     return true
 }
 
-////// Router //////
-
-type Router struct {
-    MessageQueue chan Message
-    addressBook []AddressEntry
-}
-
 func (this *Router) Init() {
     this.MessageQueue = make(chan Message)
 }
 // Kind of action controller, seems quite okay, nice to test also
 func (this *Router) RouteRequest(request string, conn Handler) {
     requestSplit := strings.SplitN(request, ":", 2)
+    if (len(requestSplit) <= 1) {
+        // Invalid request, return
+        return
+    }
+    
     action := requestSplit[0]
-    body := ""
-    if (len(requestSplit) > 1) {
-        body = requestSplit[1]
-        body = strings.TrimSuffix(body, "\n")
-        fmt.Printf("ACTION IS: %s \n", action)
-        switch {
-            case action == "JOIN":
-                this.handleClientJoinRequest(body, conn)
-            case action == "PEOPLE":
-                this.handlePeopleRequest(body, conn)
-            case action == "MESSAGE":
-                this.handleMessageRequest(body, conn)
-        }
+    body := strings.TrimSuffix(requestSplit[1], "\n")
+    fmt.Printf("ACTION IS: %s \n", action)
+    switch {
+        case action == "JOIN":
+            this.handleClientJoinRequest(body, conn)
+        case action == "PEOPLE":
+            this.handlePeopleRequest(body, conn)
+        case action == "WHOAMI":
+            this.handleWhoAmIRequest(body, conn)
+        case action == "MESSAGE":
+            this.handleMessageRequest(body, conn)
     }
 }
 
@@ -70,8 +83,11 @@ func (this *Router) handleClientJoinRequest(body string, conn Handler) {
 }
 
 func (this *Router) handlePeopleRequest(body string, conn Handler) {
-    requestId, _ := strconv.ParseUint(body, 10, 64)
-    
+    requestId, err := strconv.ParseUint(body, 10, 64)
+    if err != nil {
+        fmt.Println(err.Error())
+        return
+    }
     // Seems a bit clumsy, but will do for now
     var resultIds []string
     for _, address := range this.addressBook {
@@ -80,6 +96,19 @@ func (this *Router) handlePeopleRequest(body string, conn Handler) {
         }
     }
     conn.Write([]byte (strings.Join(resultIds,",")))
+}
+
+func (this *Router) handleWhoAmIRequest(body string, conn Handler) {
+    request := strings.SplitN(body, ":", 2)
+    if len(request) != 2 {
+        conn.Write([]byte ("Invalid WHOAMI request parameters"))
+        return
+    }
+    for _, address := range this.addressBook {
+        if (address.IP == request[0] && address.Port == request[1]) {
+            conn.Write([]byte ("You are: " + strconv.Itoa(int(address.Id))))
+        }
+    }
 }
 
 func (this *Router) handleMessageRequest(body string, conn Handler) {
@@ -104,17 +133,6 @@ func (this *Router) handleMessageRequest(body string, conn Handler) {
         this.MessageQueue <- Message{recipientId, message}
     }
     conn.Write([]byte ("Sent: \"" + message + "\" to users " + strings.Join(recipients, ",")))
-}
-
-
-////// Message Queue //////
-
-// These are for testability (duck typing?)
-type Dialer func (AddressEntry) Handler
-
-type Message struct {
-    Recipient uint64
-    Payload string
 }
 
 // A bit lame trick for testability; hopefully refactoring for channels will fix

@@ -34,7 +34,7 @@ func contactMockClient(address core.AddressEntry) core.Handler {
 	return new(MockServer)
 }
 
-func TestHandleClientJoinRequest(t *testing.T) {
+func TestRouter(t *testing.T) {
     mockConn := new(MockServer)
     mockConn.t = t
     longJohn := make([]byte, 1048577)
@@ -55,6 +55,8 @@ func TestHandleClientJoinRequest(t *testing.T) {
 		{"MESSAGE:" + tooManyRecipients + ":Should fail for too many users.\n", "Error: Too many recipients!"},
 		{"MESSAGE:1,2:" + string(longJohn) + "\n", "Error: Message too long!"},
 	}
+	router.Init()
+	go handleMessages(contactMockClient, &router)
 	
 	for _, c := range cases {
 	    router.RouteRequest(c.in, mockConn)
