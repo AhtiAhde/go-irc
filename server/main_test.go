@@ -4,6 +4,7 @@ import (
     "testing"
     "errors"
     "strconv"
+    "github.com/ThatGuyFromFinland/server/core"
 )
 
 var messageBuffer []string
@@ -29,7 +30,7 @@ func getLastMessage() string {
     return messageBuffer[len(messageBuffer) - 1]
 }
 
-func contactMockClient(address Address) Handler {
+func contactMockClient(address core.Address) core.Handler {
 	return new(MockServer)
 }
 
@@ -62,7 +63,7 @@ func TestHandleClientJoinRequest(t *testing.T) {
 	    }
 	}
 	
-	if (clients.MessageQueue[4] != Message{}) {
+	if (clients.MessageQueue.MessageQueue[4] != core.Message{}) {
 		t.Errorf("Unexpected amount or sequence of messages")
 	}
 }
