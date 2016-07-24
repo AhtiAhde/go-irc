@@ -4,7 +4,6 @@ import (
     "fmt"
     "strings"
     "strconv"
-    "net"
 )
 
 // For testability
@@ -12,7 +11,6 @@ type Handler interface {
     Read(b []byte) (n int, err error)
     Write(b []byte) (n int, err error)
     Close() error
-    LocalAddr() net.Addr
 }
 
 // For testability

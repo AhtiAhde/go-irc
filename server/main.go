@@ -50,7 +50,7 @@ func contactClient(address core.AddressEntry) core.Handler {
 }
 
 // Handles incoming requests, duh
-func handleRequest(conn net.Conn) {
+func handleRequest(conn core.Handler) {
     // Make a buffer to hold incoming data and read it
     buf := make([]byte, 1024) //Wondering if 1048577 would cause bad performance?
     n, err := conn.Read(buf)
@@ -58,7 +58,6 @@ func handleRequest(conn net.Conn) {
         fmt.Println("Error reading:", err.Error())
     }
     
-    fmt.Printf("Received connection from %s \n", conn.RemoteAddr())
     // Do something specific for the data and close the connection
     router.RouteRequest(string(buf[:n]), conn)
     conn.Close()
