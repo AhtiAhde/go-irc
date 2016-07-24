@@ -57,7 +57,7 @@ func TestHandleClientJoinRequest(t *testing.T) {
 	}
 	
 	for _, c := range cases {
-	    routeRequest(c.in, mockConn)
+	    router.RouteRequest(c.in, mockConn, &clients)
 	    if getLastMessage() != c.want {
 	        t.Errorf("Here with %q, expected %q", getLastMessage(), c.want)
 	    }
