@@ -70,6 +70,17 @@ Here is a list of versions and TODOs:
 - Learn more about channels and consider refactorings
 - Get more familiar with Go naming conventions and best practices, implement
 
+#### v-0.2.1
+
+- Readded tests for message handling
+- Refactored client for test ability
+
+#### v-0.2.2
+
+- Consider fixing the fatal server bug, when message is delivered to unavailable client
+- Separate client to main and core, just like server
+- Add tests for client core
+
 #### v-0.3.0 (TODO)
 
 - Write more tests: improve server tests and write tests for the client

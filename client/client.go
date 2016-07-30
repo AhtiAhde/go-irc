@@ -9,95 +9,112 @@ import (
     "github.com/ThatGuyFromFinland/utils"
 )
 
-func main() {
-    clientIP := ip.GetIP()
-    serverIP := os.Args[1]
-    var otherUsers string
-    reader := bufio.NewReader(os.Stdin)
-    
-    fmt.Printf("Your IP address is " + clientIP + ", which port would you prefer using?\n")
-    fmt.Println("Press enter to use default [50501]:")
-    port := "50501"
-    var input string
-    
-    // Read the port
-    input, _ = reader.ReadString('\n')
-    if (input != "\n") {
-        port = strings.Split(input, "\n")[0]
-    }
-    
-    // Join the server
-    joinRequest := "JOIN:" + clientIP + ":" + port
-    fmt.Printf("Attempting: %s\n", joinRequest)
-    status := sendRequest(joinRequest, serverIP)
-    var clientId string
-    if status[:21] == "Welcome! Your id is: " {
-        clientId = strings.Split(status[21:], ",")[0]
-    }
-    fmt.Println("Connected to server successfully, your id is: " + clientId)
-    otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
-    
-    go startListeningForMessages(clientIP, port)
-    
-    for {
-        input, _ = reader.ReadString('\n')
-        switch {
-            case len(input) > 5 && input[:6] == "/WHOIS": 
-                otherUsers = sendRequest("PEOPLE:" + clientId, serverIP)
-                fmt.Println("Users online: " + otherUsers)
-                break;
-            case len(input) > 6 && input[:7] == "/WHOAMI": 
-                response := sendRequest("WHOAMI:" + clientIP + ":" + port, serverIP)
-                fmt.Println(response)
-                break;
-            case len(input) > 7 && input[:8] == "/PRIVATE":
-                // input[9:] 9th char contains the first space
-                payload := strings.SplitN(input[9:], " ", 2)
-                sendRequest("MESSAGE:" + payload[0] + ":" + payload[1], serverIP)
-                fmt.Printf("To %s: %s\n", payload[0], payload[1])
-                break;
-            case len(input) > 4 && input[:5] == "/QUIT":
-                os.Exit(1)
-                //break; Maybe not needed?
-            default:
-                sendRequest("MESSAGE:" + otherUsers + ":" + input, serverIP)
-                fmt.Println("All: " + input)
-        }
-    }
+type Client struct {
+    ip string
+    port string
+    id string
+    serverIp string
+    userList string
+    reader *bufio.Reader
 }
 
-func startListeningForMessages(clientIP string, port string) {
-    l, err := net.Listen("tcp", clientIP + ":" + port)
+func (this *Client) StartListeningForMessages() {
+    l, err := net.Listen("tcp", this.ip + ":" + this.port)
     if err != nil {
         fmt.Println("Error failed starting to listen for server:", err.Error())
         os.Exit(1)
     }
     defer l.Close()
+    
     fmt.Println("Ready for messages")
     
     for {
         // Listen for an incoming connection.
-        client, err := l.Accept()
+        conn, err := l.Accept()
         if err != nil {
             fmt.Println("Error accepting: ", err.Error())
             os.Exit(1)
         }
-        // Handle connections in a new goroutine.
+        
         buf := make([]byte, 1024)
+        
         // Read the incoming connection into the buffer.
-        n, err := client.Read(buf)
+        n, err := conn.Read(buf)
         if err != nil {
             fmt.Println("Error reading:", err.Error())
         }
         fmt.Println(string(buf[:n]))
-        client.Close()
+        conn.Close()
     }
 }
 
-func sendRequest(request string, serverIP string) string {
-    server, _ := net.Dial("tcp", serverIP + ":50500")
+func (this *Client) Init() {
+    fmt.Printf("Your IP address is " + this.ip + ", which port would you prefer using?\n")
+    fmt.Println("Press enter to use default [50501]:")
+    
+    // Read the port
+    input, _ := this.reader.ReadString('\n')
+    if (input != "\n") {
+        this.port = strings.Split(input, "\n")[0]
+    }
+    
+    // Join the server
+    joinRequest := "JOIN:" + this.ip + ":" + this.port
+    fmt.Printf("Attempting: %s\n", joinRequest)
+    status := this.sendRequest(joinRequest)
+    if status[:21] == "Welcome! Your id is: " {
+        this.id = strings.Split(status[21:], ",")[0]
+    }
+    this.userList = this.sendRequest("PEOPLE:" + this.id)
+    
+    fmt.Println("Connected to server successfully, your id is: " + this.id + ", other users are: " + this.userList)
+}
+
+func (this *Client) WaitForCommands() {
+    for {
+        input, _ := this.reader.ReadString('\n')
+        this.handleCommands(input)
+    }
+}
+
+func (this *Client) sendRequest(request string) string {
+    server, _ := net.Dial("tcp", this.serverIp + ":50500")
     fmt.Fprintf(server, request)
     
     ret, _ := bufio.NewReader(server).ReadString('\n')
     return ret
+}
+
+func main() {
+    client := Client{ip.GetIP(), "50501", "", os.Args[1], "", bufio.NewReader(os.Stdin)}
+    client.Init()
+
+    go client.StartListeningForMessages()
+    go client.WaitForCommands()
+    for {}
+}
+
+func (this *Client) handleCommands(input string) {
+    switch {
+        case len(input) > 5 && input[:6] == "/WHOIS": 
+            this.userList = this.sendRequest("PEOPLE:" + this.id)
+            fmt.Println("Users online: " + this.userList)
+            break;
+        case len(input) > 6 && input[:7] == "/WHOAMI": 
+            response := this.sendRequest("WHOAMI:" + this.ip + ":" + this.port)
+            fmt.Println(response)
+            break;
+        case len(input) > 7 && input[:8] == "/PRIVATE":
+            // input[9:] 9th char contains the first space
+            payload := strings.SplitN(input[9:], " ", 2)
+            this.sendRequest("MESSAGE:" + payload[0] + ":" + payload[1])
+            fmt.Printf("To %s: %s\n", payload[0], payload[1])
+            break;
+        case len(input) > 4 && input[:5] == "/QUIT":
+            os.Exit(1)
+            //break; Maybe not needed?
+        default:
+            this.sendRequest("MESSAGE:" + this.userList + ":" + input)
+            fmt.Println("All: " + input)
+    }
 }
