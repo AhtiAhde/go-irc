@@ -7,36 +7,51 @@ import (
     "github.com/ThatGuyFromFinland/server/core"
 )
 
-var messageBuffer []string
+type Container struct {
+	connection *MockConnection
+}
 
-type MockServer struct {
+func (this *Container) GetConnection(address core.AddressEntry) core.Handler {
+	return this.connection
+}
+
+func (this *Container) SetConnection(conn *MockConnection) {
+	this.connection = conn
+}
+
+type MockConnection struct {
     t *testing.T
+	MessageBuffer []string
 }
 
-func (conn *MockServer) Read(b []byte) (n int, err error) {
+func (this *MockConnection) Read(b []byte) (n int, err error) {
     return 1, errors.New("Everything Okay")
 }
 
-func (conn *MockServer) Write(b []byte) (n int, err error) {
-    messageBuffer = append(messageBuffer, string(b))
+func (this *MockConnection) Write(b []byte) (n int, err error) {
+    this.MessageBuffer = append(this.MessageBuffer, string(b))
     return 1, errors.New("Everything Okay")
 }
 
-func (conn *MockServer) Close() error {
+func (this *MockConnection) Close() error {
     return errors.New("Everything Okay")
 }
 
-func getLastMessage() string {
-    return messageBuffer[len(messageBuffer) - 1]
+func (this *MockConnection) GetLastMessage() string {
+    return this.MessageBuffer[len(this.MessageBuffer) - 1]
 }
 
 func contactMockClient(address core.AddressEntry) core.Handler {
-	return new(MockServer)
+	return new(MockConnection)
 }
 
 func TestRouter(t *testing.T) {
-    mockConn := new(MockServer)
-    mockConn.t = t
+    mockServer := new(MockConnection)
+    mockServer.t = t
+    mockClient := new(MockConnection)
+    container := new(Container)
+    container.SetConnection(mockClient)
+    
     longJohn := make([]byte, 1048577)
     tooManyRecipients := ""
     for i := 0; i < 300; i++ {
@@ -56,12 +71,16 @@ func TestRouter(t *testing.T) {
 		{"MESSAGE:1,2:" + string(longJohn) + "\n", "Error: Message too long!"},
 	}
 	router.Init()
-	go handleMessages(contactMockClient, &router)
+	go handleMessages(container.GetConnection, &router)
 	
 	for _, c := range cases {
-	    router.RouteRequest(c.in, mockConn)
-	    if getLastMessage() != c.want {
-	        t.Errorf("Here with %q, expected %q", getLastMessage(), c.want)
+	    router.RouteRequest(c.in, mockServer)
+	    if mockServer.GetLastMessage() != c.want {
+	        t.Errorf("Here with %q, expected %q", mockServer.GetLastMessage(), c.want)
 	    }
+	}
+	
+	if len(mockClient.MessageBuffer) != 4 {
+		t.Errorf("Unexpected amount of messages delivered: %, expected 4", len(mockClient.MessageBuffer))
 	}
 }
