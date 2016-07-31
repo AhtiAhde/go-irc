@@ -84,8 +84,7 @@ Here is a list of versions and TODOs:
 
 - Consider a better naming convention than "core" and "main"
 - Consider fixing the fatal server bug, when message is delivered to unavailable client
-- Write more tests: improve server tests and write tests for the client
 - Consider fault tolerance for the server (prevent runtime errors, if any; add tests)
-- Consider adding tests for the client
 - Consider performance issues more in detail
 - Consider breaking the router to smaller parts if it feels like a good idea
+- Consider making "Dialer" of the server a private property of a struct
