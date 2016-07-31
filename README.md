@@ -77,14 +77,15 @@ Here is a list of versions and TODOs:
 
 #### v-0.2.2
 
-- Consider fixing the fatal server bug, when message is delivered to unavailable client
 - Separate client to main and core, just like server
 - Add tests for client core
 
 #### v-0.3.0 (TODO)
 
+- Consider a better naming convention than "core" and "main"
+- Consider fixing the fatal server bug, when message is delivered to unavailable client
 - Write more tests: improve server tests and write tests for the client
-- Consider fault tolerance for the server (prevent runtime errors, if any)
+- Consider fault tolerance for the server (prevent runtime errors, if any; add tests)
 - Consider adding tests for the client
 - Consider performance issues more in detail
 - Consider breaking the router to smaller parts if it feels like a good idea

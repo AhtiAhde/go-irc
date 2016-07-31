@@ -70,6 +70,7 @@ func TestRouter(t *testing.T) {
 		{"MESSAGE:" + tooManyRecipients + ":Should fail for too many users.\n", "Error: Too many recipients!"},
 		{"MESSAGE:1,2:" + string(longJohn) + "\n", "Error: Message too long!"},
 	}
+	
 	router.Init()
 	go handleMessages(container.GetConnection, &router)
 	
@@ -80,6 +81,7 @@ func TestRouter(t *testing.T) {
 	    }
 	}
 	
+	// Check that our messages have arrived, but no more, no less
 	if len(mockClient.MessageBuffer) != 4 {
 		t.Errorf("Unexpected amount of messages delivered: %, expected 4", len(mockClient.MessageBuffer))
 	}
